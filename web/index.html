@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aura · 灵气交易系统</title>
+  <!-- Google Fonts：Inter（UI 字体）+ JetBrains Mono（数字等宽字体）-->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css" />
+  <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+  <!-- =========== 顶栏（合并工具栏） =========== -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">✦</span>
+      <span class="wordmark">Aura</span>
+    </div>
+
+    <!-- 交易对搜索按钮（独立入口，与配置胶囊分离） -->
+    <button class="sym-badge" id="sym-badge" type="button" aria-label="搜索交易对" title="搜索交易对 (⌘K)">
+      <svg class="sym-badge-ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/>
+        <path d="M21 21l-4.35-4.35"/>
+      </svg>
+      <span class="sym-badge-ex" id="sym-badge-ex" style="color:#F0B90B;border-color:#F0B90B66;background:#F0B90B22;">BN</span>
+      <span class="sym-badge-sym" id="sym-badge-sym">BTCUSDT</span>
+      <span class="sym-badge-caret" aria-hidden="true">▾</span>
+    </button>
+
+    <!-- Command Pill：Interval · MA 预设（Symbol 已独立到左侧 sym-badge） -->
+    <div class="cmd-pill" id="cmd-pill">
+      <button class="cmd-btn" id="cmd-open" type="button" aria-expanded="false" aria-haspopup="true">
+        <span class="cp-interval" id="cp-interval">4h</span>
+        <span class="cp-sep">·</span>
+        <span class="cp-preset" id="cp-preset">Aura 预设</span>
+        <span class="cp-caret" aria-hidden="true">▾</span>
+      </button>
+      <div class="cmd-pop" id="cmd-pop" hidden>
+        <!-- 交易对搜索已独立到顶栏左侧（sym-badge，⌘K 可唤起），这里不再展示 -->
+        <!-- 隐藏 input 仍保留，作为 state 容器供 JS 读写（#symbol.value） -->
+        <input
+          type="hidden"
+          id="symbol"
+          name="aura_symbol_state"
+          value="BTCUSDT"
+        />
+        <!-- 时间框架通过图表顶部周期按钮条切换；这里 hidden select 作为 state 容器 -->
+        <select id="interval" hidden>
+          <option value="15m">15m</option>
+          <option value="1h">1h</option>
+          <option value="4h" selected>4h</option>
+          <option value="1d">1d</option>
+          <option value="1w">1w</option>
+        </select>
+
+        <div class="cmd-pop-title">分析参数</div>
+        <div class="cmd-grid">
+          <div class="cmd-row">
+            <label for="ma-kind">均线算法</label>
+            <select id="ma-kind">
+              <option value="sma" selected>SMA（原书默认）</option>
+              <option value="ema">EMA</option>
+              <option value="wma">WMA</option>
+            </select>
+          </div>
+          <div class="cmd-row">
+            <label for="cfg-preset">参数预设</label>
+            <select id="cfg-preset">
+              <option value="custom">自定义</option>
+              <option value="aura" selected>Aura 默认</option>
+              <option value="banmuxia">半木夏 · 1% 风险</option>
+            </select>
+          </div>
+          <div class="cmd-row">
+            <label for="limit">K 线根数</label>
+            <select id="limit">
+              <option value="300">300</option>
+              <option value="500">500</option>
+              <option value="800" selected>800</option>
+              <option value="1000">1000</option>
+              <option value="2000">2000（分页）</option>
+              <option value="3000">3000（分页）</option>
+              <option value="5000">5000（分页）</option>
+            </select>
+          </div>
+          <div class="cmd-row">
+            <label for="pattern-density">形态密度</label>
+            <select id="pattern-density" title="过滤最弱的形态，避免标注过密">
+              <option value="5">★★★★★（5 星）</option>
+              <option value="4">★★★★ 以上</option>
+              <option value="3" selected>★★★ 以上</option>
+              <option value="2">★★ 以上</option>
+              <option value="1">全部显示</option>
+            </select>
+          </div>
+        </div>
+        <div class="cmd-pop-hint">
+          <span>所有选择自动应用</span>
+          <button class="cmd-apply cmd-apply-small" id="reload" type="button">手动刷新</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Price HUD -->
+    <div class="price-hud" id="price-display" title="当前价（WebSocket 实时 · 日内涨跌）">
+      <span class="price-symbol" id="price-symbol">—</span>
+      <span class="price-big" id="current-price">—</span>
+      <span class="price-change" id="price-change">—</span>
+    </div>
+
+    <!-- Tabs + Settings -->
+    <nav class="tabs" aria-label="主导航">
+      <button class="tab active" data-tab="realtime">图表</button>
+      <button class="tab" data-tab="backtest">回测</button>
+      <button class="tab" data-tab="effectiveness">学习</button>
+      <div class="nav-sep" aria-hidden="true"></div>
+      <a class="tab-ext" href="/system.html" title="体系实验室：搭建、回测、自动发现">🧪 体系</a>
+      <a class="tab-ext" href="/benchmark.html" title="基准热力图：跨市场全局矩阵">🔥 基准</a>
+      <a class="tab-ext" href="/trade.html" title="实时信号面板：polling + 通知">⚡ 实时</a>
+      <a class="tab-ext" href="/alerts.html" title="订阅提醒：币种 + 指标触发推送">🔔 订阅</a>
+      <a class="tab-ext" href="/knowledge.html" title="知识库：三书 + 34 指标完整说明">📚 知识</a>
+      <button class="tab-icon" id="open-settings" title="参数 / 风险 / 均线（Cmd/Ctrl+,）" aria-label="打开设置">⚙</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- =========================================================
+         图表工作台（realtime）
+         ========================================================= -->
+    <section id="realtime" class="view active">
+      <!-- 决策单行 strip（38px 高，图表优先）-->
+      <div class="decision-strip" id="decision-bar" aria-live="polite">
+        <span class="ds-icon" id="decision-icon">🎯</span>
+        <span class="ds-label" id="decision-label">加载决策中…</span>
+        <span class="ds-risk-badge" id="decision-risk">—</span>
+        <span class="ds-sep">·</span>
+        <span class="ds-reason" id="decision-reason-one">—</span>
+        <span class="ds-flex"></span>
+        <span class="ds-meter" title="信心度">
+          <span class="ds-conf-num" id="decision-confidence-num">—%</span>
+          <span class="ds-conf-bar"><span class="ds-conf-fill" id="decision-confidence-fill"></span></span>
+        </span>
+        <button class="ds-expand" id="decision-expand" title="展开完整依据" aria-expanded="false">▸</button>
+      </div>
+      <div class="decision-pop" id="decision-details" hidden>
+        <div class="dp-col">
+          <div class="dp-title">原书依据</div>
+          <ul class="decision-reason-list" id="decision-reasons"><li class="dim">—</li></ul>
+        </div>
+        <div class="dp-col">
+          <div class="dp-title">操作建议</div>
+          <div class="decision-action-buttons" id="decision-actions"></div>
+          <div class="decision-book" id="decision-book"></div>
+        </div>
+      </div>
+
+      <!-- 工作区：图表 + 右侧信息栏 -->
+      <div class="workspace">
+        <!-- 图表区：AiCoin 风格专业终端 -->
+        <div class="chart-area" id="chart-area">
+          <!-- 周期按钮条 + 工具栏（同一行，右侧工具不再浮动遮挡图表） -->
+          <div class="chart-period-bar" role="tablist" aria-label="时间周期">
+            <button class="pd-btn" data-period="1m">1分</button>
+            <button class="pd-btn" data-period="5m">5分</button>
+            <button class="pd-btn" data-period="15m">15分</button>
+            <button class="pd-btn" data-period="30m">30分</button>
+            <button class="pd-btn" data-period="1h">1时</button>
+            <button class="pd-btn active" data-period="4h">4时</button>
+            <button class="pd-btn" data-period="1d">日K</button>
+            <button class="pd-btn" data-period="1w">周K</button>
+            <div class="chart-header-spacer"></div>
+            <!-- 工具条（嵌入同一行右侧，不再覆盖图表）-->
+            <div class="chart-toolbelt" role="toolbar" aria-label="图表工具">
+            <div class="pill-group">
+              <label class="toggle-pill"><input type="checkbox" id="show-patterns" checked><span>形态</span></label>
+              <button class="pill-caret" type="button" data-pill="patterns" title="形态分类过滤" aria-expanded="false">▾</button>
+            </div>
+            <div class="pill-group">
+              <label class="toggle-pill"><input type="checkbox" id="show-trend" checked><span>趋势</span></label>
+              <button class="pill-caret" type="button" data-pill="trend" title="趋势组件过滤" aria-expanded="false">▾</button>
+            </div>
+            <label class="toggle-pill"><input type="checkbox" id="show-fib"><span>黄金</span></label>
+            <label class="toggle-pill"><input type="checkbox" id="log-scale"><span>Log</span></label>
+            <span class="toolbelt-sep"></span>
+            <div class="draw-group" title="画线工具（点击主图取点 · Shift 吸附 OHLC · H/T/M 快捷键）">
+              <button class="draw-btn" data-draw="hline" title="水平线 (H)">━</button>
+              <button class="draw-btn" data-draw="trendline" title="趋势线 (T)">／</button>
+              <button class="draw-btn" data-draw="measure" title="测量 (M)：两点价差/根数">📏</button>
+              <button class="draw-btn" id="draw-color" title="画线颜色（点击循环切换）"><span class="draw-color-swatch"></span></button>
+              <button class="draw-btn" id="draw-manage" title="画线管理">≡</button>
+              <button class="draw-btn" id="draw-undo" title="撤销 (Ctrl+Z)">↶</button>
+              <button class="draw-btn" id="draw-clear" title="清空">✕</button>
+            </div>
+            <span class="toolbelt-sep"></span>
+            <div class="view-group" title="视图工具">
+              <button class="draw-btn" id="btn-reset-view" title="重置视图（适配全部 K 线）">⤢</button>
+              <button class="draw-btn" id="btn-export-png" title="导出图表 PNG">📷</button>
+            </div>
+            <span class="toolbelt-sep"></span>
+            <label class="toggle-pill live-pill" title="WebSocket 实时推送">
+              <input type="checkbox" id="live-stream" checked>
+              <span class="live-dot" id="live-dot"></span>
+              <span id="live-label">实时</span>
+            </label>
+            </div>
+          </div>
+
+          <!-- 图表顶部信息条：币种 · 时间 · OHLC · 涨幅（MA 系列浮在图表左上） -->
+          <div class="chart-ticker">
+            <span class="ct-symbol" id="ct-symbol">—</span>
+            <span class="ct-time" id="ct-time">—</span>
+            <span class="ct-ohlc" id="ct-ohlc">
+              <span>开 <b id="ct-open">—</b></span>
+              <span>高 <b id="ct-high">—</b></span>
+              <span>低 <b id="ct-low">—</b></span>
+              <span>收 <b id="ct-close">—</b></span>
+              <span>涨幅 <b id="ct-change">—</b></span>
+              <span>振幅 <b id="ct-amp">—</b></span>
+            </span>
+          </div>
+
+          <div class="chart-wrap">
+            <div id="chart"></div>
+            <!-- 图表左上角 MA 浮层：悬停 K 线时会更新为该 bar 的 MA 值 -->
+            <div class="chart-ma-overlay" id="chart-ma-overlay"></div>
+            <!-- 左上角下方 S/R 图例：R / S + 价格 + 触碰次数 -->
+            <div class="sr-legend" id="sr-legend"></div>
+          </div>
+          <!-- 成交量 meta 条 -->
+          <div class="submeta-bar" id="volume-meta">
+            <span class="sm-title">VOL</span>
+            <span class="sm-fields" id="volume-meta-fields">—</span>
+          </div>
+          <div id="volume"></div>
+
+          <!-- 副图：顶部 tab + 实时数值 -->
+          <div class="indicator-subpanel">
+            <div class="indicator-tabs">
+              <button class="ind-tab active" data-ind="macd" title="MACD 12/26/9">MACD</button>
+              <button class="ind-tab" data-ind="rsi" title="RSI 14">RSI</button>
+              <button class="ind-tab" data-ind="stoch_rsi" title="StochRSI 14/14/3/3">StochRSI</button>
+              <button class="ind-tab" data-ind="volume" title="成交量 + MA20">成交量</button>
+              <span class="ind-tab-meta" id="indicator-meta">—</span>
+            </div>
+            <div id="indicator"></div>
+          </div>
+
+          <div class="chart-status">
+            <span id="price-info">—</span>
+            <span id="time-info"></span>
+          </div>
+        </div>
+
+        <!-- 右侧信息栏：共振 summary + 3 个折叠 section -->
+        <aside class="info-rail">
+          <!-- 共振 summary（非折叠，置顶 sticky）-->
+          <div class="resonance-card" id="resonance-panel">
+            <div class="rh-head">
+              <span class="rh-title">四维共振</span>
+              <span class="rh-stance" id="stance-badge">—</span>
+            </div>
+            <div class="rh-score-row">
+              <div class="rh-score-big" id="score-big">—</div>
+              <div class="rh-score-bar">
+                <div class="rh-score-zero"></div>
+                <div class="rh-score-fill" id="score-bar-fill"></div>
+              </div>
+            </div>
+            <div class="rh-dims" id="dims-grid"></div>
+            <div class="rh-sug" id="sug-box"></div>
+          </div>
+
+          <!-- Section 1: 市场状态 -->
+          <details class="info-section" open>
+            <summary>
+              <span class="sec-icon">📊</span>
+              <span class="sec-title">市场状态</span>
+              <span class="sec-caret">▾</span>
+            </summary>
+            <div class="sec-body">
+              <div class="sec-subhead">趋势（道氏）</div>
+              <div class="kv"><span class="k">阶段</span><span class="v" id="dow-phase">—</span></div>
+              <div class="kv"><span class="k">结构延续</span><span class="v" id="dow-age">—</span></div>
+              <div class="kv"><span class="k">通道内位置</span><span class="v" id="channel-pos">—</span></div>
+              <div class="kv"><span class="k">S/R 位数量</span><span class="v" id="sr-count">—</span></div>
+              <div class="kv"><span class="k">未回补缺口</span><span class="v" id="gap-count">—</span></div>
+
+              <div class="sec-subhead">均线</div>
+              <div class="kv" id="alignment-row"><span class="k">排列</span><span class="v" id="alignment-val">—</span></div>
+              <div class="kv"><span class="k">别名</span><span class="v" id="alignment-aliases">—</span></div>
+              <div class="kv"><span class="k">基准 MA / BIAS</span><span class="v" id="bias-val">—</span></div>
+              <div class="kv"><span class="k">价格位置</span><span class="v" id="price-pos">—</span></div>
+              <div class="kv"><span class="k">间距趋势</span><span class="v" id="spread-state">—</span></div>
+              <table class="mini-table" id="ma-values">
+                <thead><tr><th>周期</th><th>末值</th><th>斜率 5</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </details>
+
+          <!-- Section 2: 当前信号 -->
+          <details class="info-section" open>
+            <summary>
+              <span class="sec-icon">⚡</span>
+              <span class="sec-title">当前信号</span>
+              <span class="sec-caret">▾</span>
+            </summary>
+            <div class="sec-body">
+              <div class="sec-subhead">高级信号概览</div>
+              <div class="kv"><span class="k">当前排列</span><span class="v" id="sig-alignment">—</span></div>
+              <div class="kv"><span class="k">均线关系</span><span class="v" id="sig-ma-relation">—</span></div>
+              <div class="kv"><span class="k">多合一合流</span><span class="v" id="sig-confluence-count">—</span></div>
+              <div class="kv"><span class="k">ma 高级形态</span><span class="v" id="sig-advanced-ma-count">—</span></div>
+              <div class="kv"><span class="k">多头陷阱</span><span class="v" id="sig-traps-count">—</span></div>
+              <div class="kv"><span class="k">主力潜伏突破</span><span class="v" id="sig-stealth-count">—</span></div>
+              <div class="kv"><span class="k">旗形 7 条验证</span><span class="v" id="sig-flag-count">—</span></div>
+              <div class="kv"><span class="k">无量涨跌停</span><span class="v" id="sig-volume-anomaly">—</span></div>
+              <div class="kv"><span class="k">120/240 日事件</span><span class="v" id="sig-long-term">—</span></div>
+              <div class="kv"><span class="k">趋势转移次数</span><span class="v" id="sig-trend-transitions">—</span></div>
+              <div class="kv"><span class="k">K 线组合</span><span class="v" id="sig-combinations">—</span></div>
+
+              <div class="sec-subhead">最近事件</div>
+              <ul class="sig-list" id="sig-recent-events"><li class="dim">加载中…</li></ul>
+
+              <div class="sec-subhead">葛南维信号（近 50 根）</div>
+              <ul class="sig-list" id="granville-list"><li class="dim">加载中…</li></ul>
+
+              <div class="sec-subhead">均线交叉（近 50 根）</div>
+              <ul class="sig-list" id="cross-list"><li class="dim">加载中…</li></ul>
+            </div>
+          </details>
+
+          <!-- Section 3: 形态 & 图形 -->
+          <details class="info-section" open>
+            <summary>
+              <span class="sec-icon">🕯</span>
+              <span class="sec-title">形态 & 图形</span>
+              <span class="sec-caret">▾</span>
+            </summary>
+            <div class="sec-body">
+              <div class="sec-subhead">技术图形（近期）</div>
+              <ul class="sig-list" id="chart-pattern-list"><li class="dim">加载中…</li></ul>
+
+              <div class="sec-subhead">K 线形态（近 20 条）</div>
+              <ul class="sig-list" id="pattern-list"><li class="dim">加载中…</li></ul>
+            </div>
+          </details>
+        </aside>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         回测工作台
+         ========================================================= -->
+    <section id="backtest" class="view">
+      <div class="toolbar bt-toolbar">
+        <div class="control">
+          <label>交易对</label>
+          <select id="bt-symbol">
+            <option value="BTCUSDT" selected>BTCUSDT</option>
+            <option value="ETHUSDT">ETHUSDT</option>
+            <option value="SOLUSDT">SOLUSDT</option>
+            <option value="BNBUSDT">BNBUSDT</option>
+            <option value="XRPUSDT">XRPUSDT</option>
+            <option value="DOGEUSDT">DOGEUSDT</option>
+          </select>
+        </div>
+        <div class="control">
+          <label>时间框架</label>
+          <select id="bt-interval">
+            <option value="15m">15m</option>
+            <option value="1h">1h</option>
+            <option value="4h" selected>4h</option>
+            <option value="1d">1d</option>
+            <option value="1w">1w</option>
+          </select>
+        </div>
+        <div class="control"><label>K 线数</label><input type="number" id="bt-limit" value="1000" min="200" max="1000" step="100" /></div>
+        <div class="control"><label>初始资金</label><input type="number" id="bt-capital" value="10000" min="1000" step="1000" /></div>
+        <div class="control"><label>单笔风险</label><input type="number" id="bt-risk" value="0.02" min="0.001" max="0.1" step="0.005" /></div>
+        <div class="control"><label>R:R 盈亏比</label><input type="number" id="bt-rr" value="2.0" min="0.5" max="10" step="0.5" /></div>
+        <div class="control"><label>ATR 倍数</label><input type="number" id="bt-atr" value="1.5" min="0.5" max="5" step="0.1" /></div>
+        <div class="control"><label>形态最低强度</label><input type="number" id="bt-strength" value="4" min="1" max="5" step="1" /></div>
+        <div class="control"><label>手续费 bps</label><input type="number" id="bt-fee" value="5" min="0" step="1" /></div>
+        <div class="control"><label>滑点 bps</label><input type="number" id="bt-slip" value="5" min="0" step="1" /></div>
+        <div class="control toggles"><label><input type="checkbox" id="bt-short" checked /> 允许做空</label></div>
+        <button id="bt-run" class="primary">▶ 运行回测</button>
+      </div>
+
+      <div class="bt-layout">
+        <div class="bt-equity-panel">
+          <h3>📈 权益曲线 + 回撤</h3>
+          <div id="bt-equity"></div>
+          <div id="bt-equity-empty" class="empty-state">
+            <div class="empty-icon">📊</div>
+            <h4>点击 <span class="kbd">▶ 运行回测</span> 开始</h4>
+            <p>选择策略后，权益曲线会在这里显示：</p>
+            <ul class="empty-bullets">
+              <li>📈 权益曲线（陶土橙） + 回撤条</li>
+              <li>📋 所有触发交易的清单</li>
+              <li>🏆 形态胜率排行榜</li>
+              <li>📊 17 项绩效指标（Sharpe / Sortino / Calmar / DD...）</li>
+            </ul>
+            <div class="empty-presets">
+              <button class="empty-preset-btn" data-preset="default">🚀 BTC 1d · 默认参数</button>
+              <button class="empty-preset-btn" data-preset="conservative">🛡 BTC 4h · 保守 1% 风险</button>
+              <button class="empty-preset-btn" data-preset="aggressive">⚡ ETH 4h · 激进 2% 风险 + 3R</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="bt-metrics-panel">
+          <h3>📊 绩效指标</h3>
+          <div class="metrics-grid" id="bt-metrics">
+            <div class="metric"><span class="mk">运行中…</span></div>
+          </div>
+        </div>
+
+        <div class="bt-pattern-panel">
+          <h3>🏆 形态胜率排行榜</h3>
+          <table class="big-table" id="bt-pattern-table">
+            <thead>
+              <tr><th>排名</th><th>信号源</th><th>次数</th><th>胜率</th><th>均 R</th><th>累计 R</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="bt-trades-panel">
+          <h3>📋 交易清单</h3>
+          <table class="big-table" id="bt-trades-table">
+            <thead>
+              <tr><th>#</th><th>方向</th><th>入场时间</th><th>入场价</th><th>止损</th><th>止盈</th><th>出场价</th><th>R</th><th>原因</th><th>触发</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="bt-metrics-panel playbook-panel">
+          <h3>🎭 原书策略回测（Playbook）</h3>
+          <p class="panel-subtext">
+            基于原书铁证策略模板驱动的回测：4 个独立策略 + 1 个组合策略。
+            每种策略的书源、触发逻辑、仓位都严格遵循原书。
+          </p>
+          <div class="pb-run-row">
+            <div class="control">
+              <label>策略</label>
+              <select id="pb-strategy">
+                <option value="default">组合策略（默认，三书综合）</option>
+                <option value="guillotine">断头铡刀清仓（ma p.380）</option>
+                <option value="scallions">旱地拔葱轻仓（ma p.340）</option>
+                <option value="staged_exit">三次减仓（candle p.605）</option>
+                <option value="trend_matrix">多级趋势线矩阵（trend p.216）</option>
+              </select>
+            </div>
+            <button class="primary" id="pb-run-btn">运行单策略</button>
+            <button class="secondary" id="pb-compare-btn" title="一次性跑完 5 个策略并对比">⚖️ 对比全部策略</button>
+          </div>
+          <div class="metrics-grid" id="pb-metrics">
+            <div class="metric"><span class="mk">未运行，请点击上方按钮</span></div>
+          </div>
+          <div id="pb-compare-wrap" class="pb-compare-wrap" style="display:none;">
+            <table class="big-table pb-compare-table" id="pb-compare-table">
+              <thead>
+                <tr>
+                  <th>策略</th><th>总收益</th><th>胜率</th><th>最大回撤</th>
+                  <th>盈亏比</th><th>Sharpe</th><th>期望 R</th><th>交易数</th><th>相对排名</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+            <div class="pb-compare-summary" id="pb-compare-summary"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         学习（有效性 + Bandit）
+         ========================================================= -->
+    <section id="effectiveness" class="view">
+      <div class="toolbar eff-toolbar">
+        <div class="control">
+          <label>交易对</label>
+          <select id="eff-symbol">
+            <option value="BTCUSDT" selected>BTCUSDT</option>
+            <option value="ETHUSDT">ETHUSDT</option>
+            <option value="SOLUSDT">SOLUSDT</option>
+          </select>
+        </div>
+        <div class="control">
+          <label>周期</label>
+          <select id="eff-interval">
+            <option value="1h">1 小时</option>
+            <option value="4h" selected>4 小时</option>
+            <option value="1d">日线</option>
+          </select>
+        </div>
+        <div class="control">
+          <label>K 线数</label>
+          <select id="eff-limit">
+            <option value="500">500</option>
+            <option value="1000">1000</option>
+            <option value="2000" selected>2000</option>
+          </select>
+        </div>
+        <div class="control"><label>结算 horizon</label><input type="number" id="eff-horizon" value="20" min="3" max="200" step="1" /></div>
+        <div class="control"><label>最小样本</label><input type="number" id="eff-min-n" value="3" min="0" max="100" step="1" /></div>
+        <button id="eff-run" class="primary">📈 运行评估</button>
+      </div>
+
+      <div class="eff-header">
+        <div class="eff-desc">
+          <strong>🏆 指标有效性排行榜</strong>
+          <span class="eff-sub">
+            基于 <code>engine/signal/replay.rs</code> 历史再现：扫描所有 Playbook + MA 高级信号触发点，
+            按 <code>sqrt(n) × (胜率−0.5) × 平均收益(%) × 10</code> 评分。
+          </span>
+        </div>
+        <div class="eff-stats" id="eff-stats">—</div>
+      </div>
+
+      <div class="scroll-wrap">
+      <table class="big-table eff-table" id="eff-table">
+        <thead>
+          <tr>
+            <th>#</th><th>arm</th><th>类别</th><th>样本</th><th>胜率</th><th>平均收益</th>
+            <th>Sharpe</th><th>α (vs 市场)</th><th>最大收益</th><th>最大回撤</th><th>综合评分</th><th>原书依据</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td colspan="12" style="text-align:center;color:var(--text-muted);padding:28px;">点击"📈 运行评估"开始</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <div class="bandit-section">
+        <div class="eff-header">
+          <div class="eff-desc">
+            <strong>🎰 Thompson Sampling Bandit</strong>
+            <span class="eff-sub">
+              持久化 <code>data_cache/bandit_state.v1.json</code>：每个 arm 维护 Beta(α, β) 后验。
+              "🎓 训练"把当前参数下的 wins/losses 合并进 Bandit。
+            </span>
+          </div>
+          <div class="bandit-ctrl">
+            <button id="bandit-refresh" class="secondary">🔄 刷新</button>
+            <button id="bandit-train" class="primary" title="用当前工具栏的参数训练 Bandit">🎓 训练</button>
+            <button id="bandit-reset" class="danger" title="清空 Bandit 状态">🗑️ 重置</button>
+          </div>
+        </div>
+
+        <div class="bandit-stats" id="bandit-stats">—</div>
+
+        <div class="scroll-wrap">
+        <table class="big-table bandit-table" id="bandit-table">
+          <thead>
+            <tr>
+              <th>#</th><th>arm</th><th>类别</th><th>触发</th><th>W/L</th><th>α</th><th>β</th>
+              <th>后验均值</th><th>95% 区间</th><th>平均 R%</th><th>最大/最小 R%</th><th>原书依据</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="12" style="text-align:center;color:var(--text-muted);padding:28px;">加载中...</td></tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- =========================================================
+       设置抽屉（slide-over）
+       原 "config" tab 的内容迁移到此
+       ========================================================= -->
+  <div class="drawer-backdrop" id="settings-backdrop" hidden></div>
+  <aside class="drawer" id="settings-drawer" hidden aria-labelledby="settings-title">
+    <header class="drawer-head">
+      <div>
+        <h2 id="settings-title">参数设置</h2>
+        <div class="drawer-sub">调整评分权重、风险、均线、预设方案</div>
+      </div>
+      <button class="drawer-close" id="close-settings" title="关闭（Esc）">✕</button>
+    </header>
+    <div class="drawer-body">
+
+      <section class="cfg-card">
+        <h3>🎯 四维共振权重</h3>
+        <p class="cfg-desc">A/B/C/D 四个维度在共振评分中的相对权重。权重越高影响越大。</p>
+        <div class="cfg-row">
+          <label>A 均线</label>
+          <input type="range" id="cfg-w-ma" min="0" max="1" step="0.05" value="0.3" />
+          <span class="cfg-val" id="cfg-w-ma-v">0.30</span>
+        </div>
+        <div class="cfg-row">
+          <label>B 趋势</label>
+          <input type="range" id="cfg-w-trend" min="0" max="1" step="0.05" value="0.3" />
+          <span class="cfg-val" id="cfg-w-trend-v">0.30</span>
+        </div>
+        <div class="cfg-row">
+          <label>C K线形态</label>
+          <input type="range" id="cfg-w-candle" min="0" max="1" step="0.05" value="0.2" />
+          <span class="cfg-val" id="cfg-w-candle-v">0.20</span>
+        </div>
+        <div class="cfg-row">
+          <label>D 技术图形</label>
+          <input type="range" id="cfg-w-chart" min="0" max="1" step="0.05" value="0.2" />
+          <span class="cfg-val" id="cfg-w-chart-v">0.20</span>
+        </div>
+        <div class="cfg-row">
+          <label>总权重</label>
+          <span class="cfg-val" id="cfg-w-sum">1.00</span>
+        </div>
+      </section>
+
+      <section class="cfg-card">
+        <h3>🛡 风险管理</h3>
+        <p class="cfg-desc">"建议计算器"与回测的默认风控参数。</p>
+        <div class="cfg-row"><label>账户资金 (USD)</label><input type="number" id="cfg-equity" value="10000" min="100" step="1000" /></div>
+        <div class="cfg-row"><label>单笔最大风险 %</label><input type="number" id="cfg-max-risk" value="2" min="0.1" max="10" step="0.1" /></div>
+        <div class="cfg-row"><label>R:R 盈亏比</label><input type="number" id="cfg-rr" value="2" min="0.5" max="10" step="0.5" /></div>
+        <div class="cfg-row"><label>ATR 止损倍数</label><input type="number" id="cfg-atr-mult" value="1.5" min="0.5" max="5" step="0.1" /></div>
+      </section>
+
+      <section class="cfg-card">
+        <h3>📊 均线参数</h3>
+        <p class="cfg-desc">均线周期集合（逗号分隔）。修改后自动刷新实时分析。</p>
+        <div class="cfg-row">
+          <label>周期集合</label>
+          <input type="text" id="cfg-periods" value="5,10,20,30,60,120,250" />
+        </div>
+        <div class="cfg-row">
+          <label>基准均线</label>
+          <select id="cfg-base">
+            <option value="20">MA20</option>
+            <option value="30" selected>MA30（推荐）</option>
+            <option value="60">MA60</option>
+            <option value="90">MA90</option>
+            <option value="120">MA120</option>
+            <option value="250">MA250</option>
+            <option value="256">MA256</option>
+          </select>
+        </div>
+      </section>
+
+      <section class="cfg-card">
+        <h3>📋 系统信息</h3>
+        <div class="kv"><span class="k">后端</span><span class="v">Rust (tiny_http)</span></div>
+        <div class="kv"><span class="k">图表</span><span class="v">Lightweight Charts</span></div>
+        <div class="kv"><span class="k">数据源</span><span class="v">Binance Public REST</span></div>
+        <div class="kv"><span class="k">K线形态</span><span class="v">46+ 种</span></div>
+        <div class="kv"><span class="k">技术图形</span><span class="v">25 种</span></div>
+        <div class="kv"><span class="k">均线特殊形态</span><span class="v">17 种</span></div>
+        <div class="kv"><span class="k">辅助指标</span><span class="v">RSI / MACD / StochRSI / Volume</span></div>
+        <div class="kv"><span class="k">回测绩效</span><span class="v">17 项（Sharpe / Sortino / Calmar / DD...）</span></div>
+      </section>
+
+      <section class="cfg-card">
+        <h3>📖 评分逻辑说明</h3>
+        <p class="cfg-desc">
+          系统使用 <strong>四维共振</strong> 评分（-100 ~ +100）：<br>
+          <strong>A 均线</strong>：排列 + 斜率 + BIAS + 17 种特殊形态<br>
+          <strong>B 趋势</strong>：道氏阶段（±40） + 通道位置（±10） + 缺口<br>
+          <strong>C K线形态</strong>：最近 5 根命中形态 direction × strength × 4<br>
+          <strong>D 技术图形</strong>：最近 30 根完成图形 direction × strength × 5
+        </p>
+        <p class="cfg-desc">
+          <strong>信心 → 仓位</strong>：总分 ≥ 60 强烈看涨（100%）；30-60 看涨（70%）；10-30 偏多（35%）；&lt;10 观望（0%）。
+        </p>
+        <p class="cfg-desc">
+          <strong>💾 配置持久化</strong>：所有参数自动保存到浏览器本地存储。
+          <button id="cfg-reset" class="cfg-btn-danger" style="margin-left: 10px;">恢复默认</button>
+        </p>
+      </section>
+
+    </div>
+  </aside>
+
+  <footer class="footer">
+    <span>基于邱立波《趋势交易技术》三本典籍 · 四维共振决策辅助</span>
+    <span id="footer-phase">v0.2.0 · Claude Design</span>
+  </footer>
+
+  <!-- 交易对搜索面板（AiCoin 风格，全屏模态） -->
+  <div id="symbol-picker" class="sym-picker" hidden role="dialog" aria-modal="true" aria-labelledby="sp-search">
+    <div class="sym-picker-backdrop" data-sp-close></div>
+    <div class="sym-picker-panel">
+      <div class="sym-picker-head">
+        <svg class="sp-search-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"/>
+          <path d="M21 21l-4.35-4.35"/>
+        </svg>
+        <input
+          id="sp-search"
+          type="text"
+          placeholder="搜索交易对，如 BTC、ETH、SOL"
+          autocomplete="new-password"
+          autocapitalize="none"
+          spellcheck="false"
+          data-lpignore="true"
+          data-1p-ignore="true"
+          name="aura_sp_search_no_autofill"
+        />
+        <button class="sp-close" id="sp-close" type="button" aria-label="关闭" data-sp-close>✕</button>
+      </div>
+
+      <div class="sym-picker-tabs">
+        <div class="sp-tab-row">
+          <span class="sp-tab-label">交易所</span>
+          <div class="sp-tab-group" data-group="exchange">
+            <button type="button" class="sp-tab active" data-val="*">全部</button>
+            <button type="button" class="sp-tab" data-val="BINANCE">Binance</button>
+            <button type="button" class="sp-tab" data-val="BYBIT">Bybit</button>
+            <button type="button" class="sp-tab" data-val="BITGET">Bitget</button>
+            <button type="button" class="sp-tab" data-val="OKX">OKX</button>
+          </div>
+        </div>
+        <div class="sp-tab-row">
+          <span class="sp-tab-label">计价币</span>
+          <div class="sp-tab-group" data-group="quote">
+            <button type="button" class="sp-tab active" data-val="*">全部</button>
+            <button type="button" class="sp-tab" data-val="USDT">USDT</button>
+          </div>
+        </div>
+        <div class="sp-tab-row">
+          <span class="sp-tab-label">分组</span>
+          <div class="sp-tab-group" data-group="group">
+            <button type="button" class="sp-tab active" data-val="*">全部</button>
+            <button type="button" class="sp-tab" data-val="fav">★ 收藏</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sym-picker-headbar">
+        <div class="sp-col sp-col-fav"></div>
+        <div class="sp-col sp-col-pair">交易对</div>
+        <div class="sp-col sp-col-ex">交易平台</div>
+        <div class="sp-col sp-col-base">基础币种</div>
+      </div>
+
+      <div id="sp-list" class="sym-picker-list" role="listbox" tabindex="-1"></div>
+
+      <div class="sym-picker-foot">
+        <span class="sp-hint"><kbd>↑</kbd><kbd>↓</kbd> 导航</span>
+        <span class="sp-hint"><kbd>Enter</kbd> 选中</span>
+        <span class="sp-hint"><kbd>Esc</kbd> 关闭</span>
+        <span class="sp-count" id="sp-count"></span>
+      </div>
+    </div>
+  </div>
+
+  <script src="/toast.js"></script>
+  <script src="/eventExplainer.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

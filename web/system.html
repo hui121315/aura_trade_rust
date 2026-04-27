@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aura · 体系实验室</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/system.css" />
+</head>
+<body>
+  <header class="lab-topbar">
+    <div class="brand">
+      <span class="logo">✦</span>
+      <span class="wordmark">Aura</span>
+      <span class="subtitle">体系实验室</span>
+    </div>
+    <nav class="nav-links">
+      <button id="btn-export-report" class="nav-btn" type="button" title="一键生成包含种子/基准/最近 Discovery 的 Markdown 研究报告">📄 导出报告</button>
+      <a href="/benchmark.html">🔥 基准</a>
+      <a href="/trade.html">⚡ 实时</a>
+      <a href="/alerts.html">🔔 订阅</a>
+      <a href="/knowledge.html">📚 知识</a>
+      <a href="/">← 主界面</a>
+    </nav>
+  </header>
+
+  <main class="lab-main">
+    <!-- 左栏：配置区 -->
+    <aside class="lab-config">
+      <section class="card">
+        <div class="card-header">
+          <h2>1️⃣ 种子体系（点击加载预设）</h2>
+          <select id="seed-sort" class="inline-select" title="种子列表排序方式">
+            <option value="default" selected>默认</option>
+            <option value="name">按名称</option>
+            <option value="avg_sharpe">按平均 Sharpe ↓</option>
+            <option value="btc_sharpe">按 BTC Sharpe ↓</option>
+            <option value="avg_cons">按平均一致性 ↓</option>
+          </select>
+        </div>
+        <div id="seed-list" class="seed-list">
+          <div class="loading">加载中…</div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-header">
+          <h2>2️⃣ 组件选择（最多 5 个）</h2>
+          <button id="btn-clear-components" class="inline-select" type="button" title="清空当前选择">清空</button>
+        </div>
+        <div class="hint">点击组件加入体系；再次点击移除。</div>
+        <div id="component-selector" class="component-selector">
+          <div class="loading">加载中…</div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>3️⃣ 聚合规则</h2>
+        <div class="form-row">
+          <label>规则类型</label>
+          <select id="combine-type">
+            <option value="AllAligned">AllAligned（全部同向）</option>
+            <option value="MajorityK" selected>MajorityK（K 个同向）</option>
+            <option value="WeightedScore">WeightedScore（加权评分）</option>
+            <option value="SequentialCascade">SequentialCascade（级联）</option>
+          </select>
+        </div>
+        <div class="form-row" id="row-k">
+          <label>K 值</label>
+          <input type="number" id="combine-k" value="2" min="1" max="5" />
+        </div>
+        <div class="form-row" id="row-threshold" hidden>
+          <label>阈值</label>
+          <input type="number" id="combine-threshold" value="1.5" step="0.1" />
+        </div>
+        <div class="form-row" id="row-window" hidden>
+          <label>窗口（根）</label>
+          <input type="number" id="combine-window" value="10" min="1" max="100" />
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>4️⃣ 市场 & 风控</h2>
+        <div class="form-grid">
+          <div class="form-row">
+            <label>Symbol</label>
+            <select id="symbol">
+              <option value="BTCUSDT" selected>BTCUSDT</option>
+              <option value="ETHUSDT">ETHUSDT</option>
+              <option value="SOLUSDT">SOLUSDT</option>
+              <option value="BNBUSDT">BNBUSDT</option>
+              <option value="XRPUSDT">XRPUSDT</option>
+              <option value="DOGEUSDT">DOGEUSDT</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Interval</label>
+            <select id="interval">
+              <option value="4h">4h</option>
+              <option value="1d" selected>1d</option>
+              <option value="1w">1w</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>K 线根数</label>
+            <input type="number" id="limit" value="1000" min="100" max="5000" step="100" />
+          </div>
+          <div class="form-row">
+            <label>止损 ATR×</label>
+            <input type="number" id="stop-atr" value="2.0" step="0.1" min="0.5" max="10" />
+          </div>
+          <div class="form-row">
+            <label>目标 R</label>
+            <input type="number" id="target-r" value="3.0" step="0.1" min="0.5" max="10" />
+          </div>
+          <div class="form-row">
+            <label>最长持仓</label>
+            <input type="number" id="max-hold" value="30" min="5" max="200" />
+          </div>
+        </div>
+      </section>
+
+      <div class="btn-row">
+        <button id="btn-run" class="btn-primary" type="button">🚀 运行回测</button>
+        <button id="btn-walkforward" class="btn-secondary" type="button" title="把 K 线拆分为 N 折，每折独立跑一次体系，检验稳健性">🧪 Walk-Forward</button>
+      </div>
+      <div class="form-row inline">
+        <label>折数</label>
+        <input type="number" id="wf-folds" value="4" min="2" max="10" />
+        <label>WF 总 K 线数</label>
+        <input type="number" id="wf-limit" value="2000" min="400" max="5000" step="200" />
+      </div>
+
+      <section class="card">
+        <h2>5️⃣ 🔍 Discovery 自动发现</h2>
+        <div class="hint">贪心 beam search 从 32 个组件自动挖掘 Top-K 高尤组合，WF 精排</div>
+        <div class="form-grid">
+          <div class="form-row">
+            <label>方向</label>
+            <select id="dc-direction">
+              <option value="1" selected>📈 多头 (Long)</option>
+              <option value="-1">📉 空头 (Short)</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>最大组件数</label>
+            <select id="dc-max-size">
+              <option value="2">2</option>
+              <option value="3" selected>3</option>
+              <option value="4">4</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Top-K</label>
+            <input type="number" id="dc-top-k" value="10" min="3" max="30" />
+          </div>
+          <div class="form-row">
+            <label>WF 折数</label>
+            <input type="number" id="dc-wf-folds" value="4" min="0" max="10" />
+          </div>
+        </div>
+        <div class="form-row" style="margin-top: 8px;">
+          <label title="用 Walk-Forward 在这些额外市场上验证 Top-K 候选，避免主市场过拟合">
+            交叉验证 symbols（逗号分隔，可为空）
+          </label>
+          <input type="text" id="dc-cross-symbols" placeholder="ETHUSDT, SOLUSDT" value="ETHUSDT, SOLUSDT" />
+        </div>
+        <div class="form-row" style="margin-top: 4px;">
+          <label title="M11：额外周期，与 cross_symbols 做笛卡尔积形成完整验证点">
+            交叉验证 intervals（可为空，主 interval 已自动包含）
+          </label>
+          <input type="text" id="dc-cross-intervals" placeholder="4h, 1w" value="" />
+        </div>
+        <div class="btn-row" style="margin-top: 10px;">
+          <button id="btn-discover" class="btn-accent" type="button" style="flex:1;">🔍 发现当前方向</button>
+          <button id="btn-discover-both" class="btn-accent" type="button" style="flex:1;" title="同时发现多头 + 空头 Top-K，结果垂直平铺">⚖️ 双向发现</button>
+        </div>
+      </section>
+      <div id="run-status" class="run-status"></div>
+    </aside>
+
+    <!-- 右栏：结果区 -->
+    <section class="lab-results">
+      <div class="card" id="result-placeholder">
+        <div class="placeholder">
+          <h2>📊 结果将显示在这里</h2>
+          <p>配置左侧参数后点击"运行回测"</p>
+        </div>
+      </div>
+
+      <div class="card" id="result-kpi" hidden>
+        <h2>📊 绩效 KPI</h2>
+        <div class="kpi-grid" id="kpi-grid"></div>
+      </div>
+
+      <div class="card" id="result-contrib" hidden>
+        <h2>🔬 组件归因</h2>
+        <table class="data-table" id="contrib-table">
+          <thead>
+            <tr>
+              <th>组件 ID</th>
+              <th>触发次数</th>
+              <th>成交次数</th>
+              <th>命中率</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="card" id="result-discovery" hidden>
+        <h2>🔍 Discovery 结果</h2>
+        <div class="hint" id="dc-hint"></div>
+        <div id="dc-sections"></div>
+      </div>
+
+      <div class="card" id="result-walkforward" hidden>
+        <h2>🧪 Walk-Forward 验证</h2>
+        <div class="hint" id="wf-hint"></div>
+        <div class="kpi-grid" id="wf-aggregate"></div>
+        <table class="data-table" id="wf-folds-table">
+          <thead>
+            <tr>
+              <th>折</th>
+              <th>Bar 区间</th>
+              <th>交易</th>
+              <th>胜率</th>
+              <th>总收益</th>
+              <th>Sharpe</th>
+              <th>最大回撤</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="card" id="result-trades" hidden>
+        <h2>📋 交易列表（前 20 笔）</h2>
+        <table class="data-table" id="trades-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>方向</th>
+              <th>持仓</th>
+              <th>Bar</th>
+              <th>入场价</th>
+              <th>出场价</th>
+              <th>PnL</th>
+              <th>R</th>
+              <th>出场原因</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="/toast.js"></script>
+  <script src="/system.js"></script>
+</body>
+</html>

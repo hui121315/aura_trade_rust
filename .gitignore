@@ -1,0 +1,22 @@
+# Rust
+/target
+/app-tauri/target
+/app-tauri/gen
+
+# Tauri 占位图标（正式 logo 替换后可重新提交）
+/app-tauri/icons/*.png
+/app-tauri/icons/*.icns
+/app-tauri/icons/*.ico
+
+# Aura-Trade 本地缓存
+/data_cache
+/backtest_results
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store

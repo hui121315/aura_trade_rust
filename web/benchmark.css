@@ -1,0 +1,132 @@
+/* ================================================================
+   Aura · 基准热力图 — 独立样式（复用 system.css 变量与基础类）
+   ================================================================ */
+
+.bench-main {
+  display: grid;
+  grid-template-columns: minmax(300px, 340px) 1fr;
+  gap: 20px;
+  padding: 20px;
+  max-width: 1800px;
+  margin: 0 auto;
+}
+@media (max-width: 1024px) {
+  .bench-main { grid-template-columns: 1fr; }
+}
+
+.bench-controls { align-self: start; position: sticky; top: 80px; }
+.bench-heatmap { min-height: 400px; overflow-x: auto; }
+
+.heatmap-wrap { overflow-x: auto; }
+.heatmap-table {
+  border-collapse: separate;
+  border-spacing: 2px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  width: auto;
+}
+.heatmap-table th {
+  font-weight: 500;
+  color: var(--text-dim);
+  padding: 6px 8px;
+  text-align: center;
+  background: var(--bg);
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.heatmap-table th.hm-corner { min-width: 220px; text-align: left; }
+.heatmap-table th.hm-symbol {
+  border-bottom: 2px solid var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 12px;
+}
+.heatmap-table th.hm-tf { font-size: 10px; color: var(--text-dim); }
+
+.heatmap-table td.hm-name {
+  padding: 6px 10px;
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 4px;
+  white-space: nowrap;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.heatmap-table td.hm-name:hover { background: var(--bg-hover); }
+
+.heatmap-table td.hm-cell {
+  padding: 8px 10px;
+  text-align: center;
+  border-radius: 4px;
+  min-width: 60px;
+  cursor: pointer;
+  transition: transform 0.1s;
+  font-weight: 600;
+  font-size: 12px;
+}
+.heatmap-table td.hm-cell:hover {
+  transform: scale(1.08);
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+.heatmap-table td.hm-cell.empty {
+  background: #1a1f2e;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+/* 行聚合（右侧均值列） */
+.heatmap-table td.hm-agg {
+  padding: 6px 10px;
+  text-align: center;
+  background: var(--bg-card);
+  color: var(--text);
+  border-left: 2px solid var(--border);
+  font-weight: 700;
+}
+
+/* Tooltip */
+.hm-tooltip {
+  position: fixed;
+  pointer-events: none;
+  background: #0b0d14;
+  border: 1px solid var(--accent);
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  z-index: 100;
+  max-width: 320px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.hm-tooltip .head {
+  color: var(--accent);
+  font-weight: 700;
+  margin-bottom: 4px;
+  font-family: 'Inter', sans-serif;
+}
+.hm-tooltip .row { color: var(--text-dim); }
+.hm-tooltip .row .v { color: var(--text); float: right; margin-left: 12px; }
+
+/* 图例 */
+.hm-legend {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: 'JetBrains Mono', monospace;
+}
+.hm-legend-bar {
+  height: 12px;
+  width: 300px;
+  border-radius: 3px;
+  background: linear-gradient(90deg,
+    #7f1d1d 0%, #991b1b 15%, #4b5563 45%, #4b5563 55%, #15803d 85%, #14532d 100%);
+}

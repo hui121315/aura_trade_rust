@@ -1,0 +1,400 @@
+/* ===================================================================
+ * alerts.css — 订阅提醒页面
+ * 复用 style.css 的设计变量（surface / border / text / accent / bull / bear）
+ * =================================================================== */
+
+.alerts-main {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 16px;
+  padding: 16px 20px 28px;
+  max-width: 1680px;
+  margin: 0 auto;
+  align-items: start;
+}
+
+/* ---------- 左栏 ---------- */
+.alerts-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: sticky;
+  top: 12px;
+}
+
+.al-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.al-form .form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.al-form label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+.al-form select,
+.al-form input[type="text"] {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+.al-form .symbol-input {
+  font-family: var(--font-mono);
+  letter-spacing: 0.3px;
+}
+.al-form select:hover,
+.al-form input:hover { border-color: var(--border-strong); }
+.al-form select:focus,
+.al-form input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.al-submit {
+  margin-top: 4px;
+}
+
+/* ---------- 统计 ---------- */
+.al-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--border);
+  font-size: 12px;
+}
+.al-stat-row:last-child { border-bottom: none; }
+.al-stat-row .k { color: var(--text-muted); }
+.al-stat-row .v {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 通知开关 ---------- */
+.al-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+.al-toggle-label {
+  font-size: 12px;
+  color: var(--text);
+  flex: 1;
+}
+.al-toggle-status {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.al-toggle-status.granted {
+  color: var(--bull);
+  font-weight: 600;
+}
+.al-toggle-status.denied {
+  color: var(--bear);
+  font-weight: 600;
+}
+.al-test-btn {
+  margin-top: 6px;
+  width: 100%;
+}
+
+/* switch 组件 */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  flex-shrink: 0;
+}
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.switch .slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  transition: 0.2s;
+}
+.switch .slider::before {
+  content: "";
+  position: absolute;
+  height: 14px;
+  width: 14px;
+  left: 2px;
+  top: 2px;
+  background: var(--text-muted);
+  border-radius: 50%;
+  transition: 0.2s;
+}
+.switch input:checked + .slider {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.switch input:checked + .slider::before {
+  transform: translateX(16px);
+  background: var(--accent);
+}
+
+/* ---------- 右侧内容区 ---------- */
+.alerts-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.card-head h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.card-head-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* ---------- 通用按钮 ---------- */
+.btn-primary,
+.btn-secondary,
+.btn-ghost {
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+}
+.btn-primary {
+  background: var(--accent);
+  color: var(--text-on-accent);
+  border-color: var(--accent);
+  font-weight: 600;
+  padding: 10px 16px;
+  font-size: 13px;
+}
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-secondary {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--border);
+}
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+.btn-ghost {
+  background: transparent;
+  color: var(--text-muted);
+  border-color: transparent;
+}
+.btn-ghost:hover { color: var(--text); background: var(--surface-2); }
+.btn-ghost.danger:hover { color: var(--bear); }
+
+/* ---------- 表格 ---------- */
+.table-wrap {
+  overflow-x: auto;
+  max-height: 520px;
+  overflow-y: auto;
+}
+.al-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.al-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-size: 10px;
+  padding: 10px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  z-index: 1;
+}
+.al-table tbody td {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  vertical-align: middle;
+}
+.al-table tbody tr:hover { background: var(--surface-2); }
+
+.al-cell-symbol {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--accent);
+}
+.al-cell-interval {
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+.al-cell-time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.al-cell-price {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.al-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+.al-badge.active {
+  background: color-mix(in srgb, var(--bull) 20%, transparent);
+  color: var(--bull);
+  border: 1px solid color-mix(in srgb, var(--bull) 50%, transparent);
+}
+.al-badge.paused {
+  background: color-mix(in srgb, var(--text-muted) 15%, transparent);
+  color: var(--text-muted);
+  border: 1px solid color-mix(in srgb, var(--text-muted) 40%, transparent);
+}
+
+.al-kind-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  white-space: nowrap;
+}
+.al-kind-tag.bull { border-color: color-mix(in srgb, var(--bull) 40%, transparent); color: var(--bull); }
+.al-kind-tag.bear { border-color: color-mix(in srgb, var(--bear) 40%, transparent); color: var(--bear); }
+.al-kind-tag.warn { border-color: color-mix(in srgb, var(--warn) 40%, transparent); color: var(--warn); }
+
+/* ---------- 操作按钮 ---------- */
+.al-row-actions {
+  display: flex;
+  gap: 4px;
+}
+.al-row-btn {
+  padding: 4px 8px;
+  font-size: 11px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: 0.15s;
+}
+.al-row-btn:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.al-row-btn.danger:hover {
+  color: var(--bear);
+  border-color: var(--bear);
+}
+
+/* ---------- 空状态 ---------- */
+.al-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+}
+.al-empty-icon {
+  font-size: 42px;
+  margin-bottom: 12px;
+  opacity: 0.7;
+}
+.al-empty h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: var(--text);
+  font-weight: 600;
+}
+.al-empty p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* ---------- Poll 状态 ---------- */
+.poll-status {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  padding: 4px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  white-space: nowrap;
+}
+.poll-status.scanning {
+  color: var(--accent);
+  border-color: var(--accent);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+.poll-status.triggered {
+  color: var(--bull);
+  border-color: var(--bull);
+  animation: flash-bull 0.6s ease-out 2;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+@keyframes flash-bull {
+  0%, 100% { background: var(--surface-2); }
+  50% { background: color-mix(in srgb, var(--bull) 25%, transparent); }
+}
+
+/* ---------- 响应式 ---------- */
+@media (max-width: 1080px) {
+  .alerts-main {
+    grid-template-columns: 1fr;
+  }
+  .alerts-sidebar {
+    position: static;
+  }
+}
+
+/* ---------- 高亮新触发 ---------- */
+.al-table tbody tr.just-triggered {
+  animation: row-flash 1.4s ease-out;
+}
+@keyframes row-flash {
+  0% { background: color-mix(in srgb, var(--bull) 30%, transparent); }
+  100% { background: transparent; }
+}

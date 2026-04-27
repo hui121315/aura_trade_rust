@@ -1,0 +1,42 @@
+[workspace]
+members = [".", "app-tauri"]
+resolver = "2"
+
+[package]
+name = "aura_trade"
+version = "0.1.0"
+edition = "2021"
+description = "Aura-Trade: 基于四维共振的交易决策辅助与历史回测工作台（纯 Rust 后端）"
+license = "MIT"
+
+[[bin]]
+name = "aura_trade"
+path = "src/main.rs"
+
+[lib]
+name = "aura_trade"
+path = "src/lib.rs"
+
+[dependencies]
+# HTTP 服务（PRD 指定）
+tiny_http = "0.12"
+
+# HTTP 客户端（同步 REST，PRD 指定）
+ureq = { version = "2.9", features = ["json"] }
+
+# JSON 序列化（PRD 指定）
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# 日志（仅使用 log facade，搭配本项目内置的极简 stderr logger）
+log = "0.4"
+
+# 并行化（M8：Discovery + walk-forward 内并行 folds / finalists）
+rayon = "1.10"
+# 注：时间处理使用 std::time + 本项目 `logger.rs` 中的日历算法实现，零外部依赖
+# 注：URL 解码使用 `server::url_decode` 模块自实现，零外部依赖
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

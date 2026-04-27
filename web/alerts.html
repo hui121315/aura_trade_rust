@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aura · 订阅提醒</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/alerts.css" />
+</head>
+<body>
+  <header class="lab-topbar">
+    <div class="brand">
+      <span class="logo">✦</span>
+      <span class="wordmark">Aura</span>
+      <span class="subtitle">订阅提醒</span>
+    </div>
+    <nav class="nav-links">
+      <span class="poll-status" id="al-poll-status" title="距下次扫描剩余秒数">—</span>
+      <a href="/system.html">🧪 体系</a>
+      <a href="/benchmark.html">🔥 基准</a>
+      <a href="/trade.html">⚡ 实时</a>
+      <a href="/knowledge.html">📚 知识</a>
+      <a href="/">← 主界面</a>
+    </nav>
+  </header>
+
+  <main class="alerts-main">
+    <!-- 左栏：新增订阅 + 统计 + 通知设置 -->
+    <aside class="alerts-sidebar">
+      <section class="card">
+        <h2>➕ 新增订阅</h2>
+        <form id="al-form" class="al-form" autocomplete="off">
+          <div class="form-row">
+            <label>交易对</label>
+            <div class="combobox" id="al-symbol-combobox">
+              <input
+                type="text"
+                id="al-symbol"
+                value="BTCUSDT"
+                class="symbol-input"
+                placeholder="输入币种，如 BTC、ETH、SOL…"
+                autocapitalize="characters"
+                spellcheck="false"
+              />
+              <span class="combobox-caret" aria-hidden="true">▾</span>
+              <div class="combobox-dropdown" id="al-symbol-dropdown" hidden role="listbox"></div>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>时间周期</label>
+            <select id="al-interval">
+              <option value="15m">15 分钟</option>
+              <option value="1h">1 小时</option>
+              <option value="4h" selected>4 小时</option>
+              <option value="1d">日线</option>
+              <option value="1w">周线</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>触发类型</label>
+            <select id="al-kind">
+              <optgroup label="均线信号（MA）">
+                <option value="ma_golden_cross">金叉（MA 快穿慢）</option>
+                <option value="ma_death_cross">死叉（MA 快下穿慢）</option>
+                <option value="ma_bull_align">均线多头排列</option>
+                <option value="ma_bear_align">均线空头排列</option>
+              </optgroup>
+              <optgroup label="均线特殊形态（原书铁证）">
+                <option value="ma_guillotine">断头铡刀（71% 胜率 α=+1.37%）</option>
+                <option value="ma_desert_breakout">旱地拔葱</option>
+                <option value="ma_poison_spider">毒蜘蛛</option>
+              </optgroup>
+              <optgroup label="K 线形态">
+                <option value="candle_bull_engulf">阳包阴（看涨吞没）</option>
+                <option value="candle_bear_engulf">阴包阳（看跌吞没）</option>
+                <option value="candle_morning_star">早晨之星</option>
+                <option value="candle_evening_star">黄昏之星</option>
+              </optgroup>
+              <optgroup label="图表形态">
+                <option value="chart_hs_top">头肩顶（颈线跌破）</option>
+                <option value="chart_hs_bottom">头肩底（颈线突破）</option>
+                <option value="chart_double_top">双顶</option>
+                <option value="chart_double_bottom">双底</option>
+              </optgroup>
+              <optgroup label="趋势与 S/R">
+                <option value="sr_break_up">价格上破阻力位</option>
+                <option value="sr_break_down">价格下破支撑位</option>
+                <option value="trend_reversal">趋势反转</option>
+              </optgroup>
+              <optgroup label="技术指标">
+                <option value="rsi_overbought">RSI 超买（>70）</option>
+                <option value="rsi_oversold">RSI 超卖（<30）</option>
+                <option value="volume_spike">异常放量（> 3×均量）</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>备注（可选）</label>
+            <input type="text" id="al-note" maxlength="60" placeholder="例如：主力吸筹观察点" />
+          </div>
+          <button class="btn-primary al-submit" type="submit">✦ 添加订阅</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>📊 统计</h2>
+        <div class="al-stat-row"><span class="k">活跃订阅</span><span class="v" id="al-stat-active">0</span></div>
+        <div class="al-stat-row"><span class="k">暂停订阅</span><span class="v" id="al-stat-paused">0</span></div>
+        <div class="al-stat-row"><span class="k">今日触发</span><span class="v" id="al-stat-today">0</span></div>
+        <div class="al-stat-row"><span class="k">历史触发</span><span class="v" id="al-stat-total">0</span></div>
+      </section>
+
+      <section class="card">
+        <h2>🔔 通知设置</h2>
+        <div class="al-toggle-row">
+          <label class="switch">
+            <input type="checkbox" id="al-enable-notif">
+            <span class="slider"></span>
+          </label>
+          <span class="al-toggle-label">浏览器通知</span>
+          <span class="al-toggle-status" id="al-notif-status">未启用</span>
+        </div>
+        <div class="al-toggle-row">
+          <label class="switch">
+            <input type="checkbox" id="al-enable-sound" checked>
+            <span class="slider"></span>
+          </label>
+          <span class="al-toggle-label">声音提示</span>
+        </div>
+        <div class="al-toggle-row">
+          <label class="switch">
+            <input type="checkbox" id="al-auto-poll" checked>
+            <span class="slider"></span>
+          </label>
+          <span class="al-toggle-label">自动扫描（60s）</span>
+        </div>
+        <button class="btn-secondary al-test-btn" id="al-test-notif" type="button">发送测试通知</button>
+      </section>
+    </aside>
+
+    <!-- 主内容：订阅列表 + 触发历史 -->
+    <section class="alerts-content">
+      <section class="card alerts-list-card">
+        <div class="card-head">
+          <h2>📋 订阅列表</h2>
+          <div class="card-head-actions">
+            <button class="btn-ghost" id="al-enable-all" type="button" title="启用全部订阅">全部启用</button>
+            <button class="btn-ghost" id="al-pause-all" type="button" title="暂停全部订阅">全部暂停</button>
+            <button class="btn-ghost danger" id="al-clear-all" type="button" title="删除全部订阅">清空</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="al-table" id="al-table">
+            <thead>
+              <tr>
+                <th>币种</th>
+                <th>周期</th>
+                <th>触发类型</th>
+                <th>备注</th>
+                <th>状态</th>
+                <th>最近触发</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="al-tbody">
+              <!-- 动态填充 -->
+            </tbody>
+          </table>
+          <div class="al-empty" id="al-empty" hidden>
+            <div class="al-empty-icon">🔕</div>
+            <h3>还没有订阅</h3>
+            <p>在左侧表单添加你的第一个订阅，<br>我们会在后台为你持续扫描。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="card history-card">
+        <div class="card-head">
+          <h2>📜 触发历史</h2>
+          <div class="card-head-actions">
+            <button class="btn-ghost" id="al-export-csv" type="button" title="导出为 CSV">📥 导出 CSV</button>
+            <button class="btn-ghost danger" id="al-clear-history" type="button" title="清空触发历史">清空</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="al-table" id="al-history-table">
+            <thead>
+              <tr>
+                <th>时间</th>
+                <th>币种</th>
+                <th>周期</th>
+                <th>触发</th>
+                <th>价格</th>
+                <th>备注</th>
+              </tr>
+            </thead>
+            <tbody id="al-history-tbody">
+              <!-- 动态填充 -->
+            </tbody>
+          </table>
+          <div class="al-empty" id="al-history-empty" hidden>
+            <div class="al-empty-icon">⏳</div>
+            <h3>暂无触发记录</h3>
+            <p>订阅被触发时，最近 200 条会记录在这里。</p>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="/toast.js"></script>
+  <script src="/alerts.js"></script>
+</body>
+</html>

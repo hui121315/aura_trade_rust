@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aura · 知识库 · 三书 & 34 指标</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/knowledge.css" />
+</head>
+<body>
+  <header class="lab-topbar">
+    <div class="brand">
+      <span class="logo">✦</span>
+      <span class="wordmark">Aura</span>
+      <span class="subtitle">知识库</span>
+    </div>
+    <nav class="nav-links">
+      <a href="/system.html">🧪 体系</a>
+      <a href="/benchmark.html">🔥 基准</a>
+      <a href="/trade.html">⚡ 实时</a>
+      <a href="/alerts.html">🔔 订阅</a>
+      <a href="/">← 主界面</a>
+    </nav>
+  </header>
+
+  <div class="kb-layout">
+    <!-- 左侧导航 -->
+    <aside class="kb-sidebar">
+      <div class="kb-search">
+        <span class="kb-search-icon">🔍</span>
+        <input type="search" id="kb-search-input" placeholder="搜索知识点 / 指标 / 书名…" autocomplete="off" />
+      </div>
+      <div class="kb-search-hint" id="kb-search-hint" hidden>
+        <span id="kb-search-count">0</span> 个匹配结果 · <button id="kb-search-clear" class="kb-link">清除</button>
+      </div>
+
+      <nav class="kb-nav" id="kb-nav">
+        <!-- 导航由 knowledge.js 的 renderNav() 动态生成，涵盖全部知识卡片 -->
+      </nav>
+    </aside>
+
+    <!-- 主内容区 -->
+    <main class="kb-content" id="kb-content">
+      <!-- 内容动态填充在 knowledge.html 下方（SSR 静态），或 JS 填充 -->
+      <!-- 为避免单文件过长 & 便于 SEO/收藏锚点，这里写静态内容（分批 edit 填充） -->
+      <div class="kb-hero">
+        <div class="kb-hero-title">Aura 三书 · 完整交易知识库</div>
+        <div class="kb-hero-subtitle">
+          基于《均线技术分析》《趋势技术分析》《K 线技术分析》26 轮精读沉淀的
+          <b>单一真相来源</b>。每个知识点包含 <b>📖 小白解读 · 👁️ 识别步骤 · ✅ 交易策略 · ⚠️ 易错点 · 💡 实战案例 · 📚 原书原文 · 💻 代码位置</b>。
+          <br>
+          <b>小白也能读懂</b>，左侧可搜索，Ctrl+F 快速定位。
+        </div>
+        <div class="kb-hero-stats">
+          <div class="kb-hero-stat"><b id="kb-stat-sections">0</b><span>知识卡片</span></div>
+          <div class="kb-hero-stat"><b>3</b><span>核心书籍</span></div>
+          <div class="kb-hero-stat"><b>9</b><span>大分类</span></div>
+          <div class="kb-hero-stat"><b>477+</b><span>测试用例</span></div>
+        </div>
+      </div>
+
+      <!-- 内容将通过后续 edit 填充 -->
+      <div id="kb-body"></div>
+    </main>
+  </div>
+
+  <script src="/knowledge.js"></script>
+</body>
+</html>

@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aura-Trade · 灵气交易系统</title>
+  <link rel="stylesheet" href="/style.css" />
+  <!-- Lightweight Charts 由 TradingView 官方发布 -->
+  <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">✦</span>
+      <span class="title">AURA-TRADE</span>
+      <span class="subtitle">灵气交易系统 · 决策辅助 + 回测</span>
+    </div>
+    <nav class="tabs">
+      <button class="tab active" data-tab="realtime">📊 实时分析</button>
+      <button class="tab" data-tab="backtest">🧪 回测实验室</button>
+      <button class="tab" data-tab="effectiveness">🏆 有效性分析</button>
+      <button class="tab" data-tab="config">⚙️ 参数配置</button>
+    </nav>
+    <div class="price-display" id="price-display" title="当前价（WebSocket 实时 · 日内涨跌）">
+      <span class="price-symbol" id="price-symbol">—</span>
+      <span class="price-big" id="current-price">—</span>
+      <span class="price-change" id="price-change">—</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- ========== 实时分析工作台 ========== -->
+    <section id="realtime" class="view active">
+      <div class="toolbar">
+        <div class="control">
+          <label>交易对</label>
+          <select id="symbol">
+            <option value="BTCUSDT" selected>BTCUSDT</option>
+            <option value="ETHUSDT">ETHUSDT</option>
+            <option value="SOLUSDT">SOLUSDT</option>
+            <option value="BNBUSDT">BNBUSDT</option>
+            <option value="XRPUSDT">XRPUSDT</option>
+            <option value="DOGEUSDT">DOGEUSDT</option>
+          </select>
+        </div>
+        <div class="control">
+          <label>时间框架</label>
+          <select id="interval">
+            <option value="15m">15m</option>
+            <option value="1h">1h</option>
+            <option value="4h" selected>4h</option>
+            <option value="1d">1d</option>
+            <option value="1w">1w</option>
+          </select>
+        </div>
+        <div class="control">
+          <label>均线算法</label>
+          <select id="ma-kind">
+            <option value="sma" selected>SMA（原书默认）</option>
+            <option value="ema">EMA</option>
+            <option value="wma">WMA</option>
+          </select>
+        </div>
+        <div class="control">
+          <label>K线数</label>
+          <select id="limit">
+            <option value="300">300</option>
+            <option value="500">500</option>
+            <option value="800" selected>800</option>
+            <option value="1000">1000</option>
+            <option value="2000">2000（分页）</option>
+            <option value="3000">3000（分页）</option>
+            <option value="5000">5000（分页）</option>
+          </select>
+        </div>
+        <div class="control">
+          <label>形态密度</label>
+          <select id="pattern-density" title="过滤最弱的形态，避免标注过密">
+            <option value="5">★★★★★（5 星）</option>
+            <option value="4">★★★★ 以上</option>
+            <option value="3" selected>★★★ 以上</option>
+            <option value="2">★★ 以上</option>
+            <option value="1">全部显示</option>
+          </select>
+        </div>
+        <div class="control toggles">
+          <label><input type="checkbox" id="log-scale" /> 对数坐标</label>
+          <label><input type="checkbox" id="show-patterns" checked /> 形态标注</label>
+          <label><input type="checkbox" id="show-trend" checked /> 趋势叠加</label>
+          <label><input type="checkbox" id="show-fib" /> 黄金分割</label>
+          <label class="live-toggle">
+            <input type="checkbox" id="live-stream" checked />
+            <span class="live-dot" id="live-dot"></span>
+            <span id="live-label">实时</span>
+          </label>
+        </div>
+        <button id="reload" class="primary">刷新</button>
+        <!-- 画线工具组 -->
+        <div class="control draw-tools" title="画线工具（点击主图取点）">
+          <label>画线</label>
+          <div class="draw-btn-row">
+            <button class="draw-btn" data-draw="hline" title="水平线：点击一次完成">━</button>
+            <button class="draw-btn" data-draw="trendline" title="趋势线：两次点击连线">／</button>
+            <button class="draw-btn" id="draw-undo" title="撤销上一条">↶</button>
+            <button class="draw-btn" id="draw-clear" title="清空全部画线">✕</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- P0-1: AI 决策横条（紧凑单行版，点击 ▸ 展开详情） -->
+      <div class="decision-bar compact" id="decision-bar" aria-live="polite">
+        <div class="db-main">
+          <span class="db-icon" id="decision-icon">🎯</span>
+          <span class="db-label" id="decision-label">加载决策中…</span>
+          <span class="db-sep">·</span>
+          <span class="db-conf-num" id="decision-confidence-num">—%</span>
+          <div class="db-conf-bar"><div class="db-conf-fill" id="decision-confidence-fill"></div></div>
+          <span class="db-sep">·</span>
+          <span class="db-risk-badge" id="decision-risk">—</span>
+          <span class="db-sep">·</span>
+          <span class="db-reason-one" id="decision-reason-one">加载中…</span>
+          <button class="db-expand" id="decision-expand" title="展开完整依据" aria-expanded="false">▸</button>
+        </div>
+        <div class="db-details" id="decision-details" hidden>
+          <div class="db-details-col">
+            <div class="db-sec-title">✅ 原书依据</div>
+            <ul class="decision-reason-list" id="decision-reasons"><li class="dim">—</li></ul>
+          </div>
+          <div class="db-details-col">
+            <div class="db-sec-title">💡 操作建议</div>
+            <div class="decision-action-buttons" id="decision-actions"></div>
+            <div class="decision-book" id="decision-book"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="layout">
+        <!-- 左：图表区（主图 / 成交量 / 指标副图 / 状态栏） -->
+        <div class="chart-area">
+          <div id="chart"></div>
+          <div id="volume"></div>
+          <div class="indicator-subpanel">
+            <div class="indicator-tabs">
+              <button class="ind-tab active" data-ind="macd" title="MACD 12/26/9">MACD</button>
+              <button class="ind-tab" data-ind="rsi" title="RSI 14">RSI</button>
+              <button class="ind-tab" data-ind="stoch_rsi" title="StochRSI 14/14/3/3（K/D 两条）">StochRSI</button>
+              <button class="ind-tab" data-ind="volume" title="成交量 + MA20">成交量</button>
+              <span class="ind-tab-meta" id="indicator-meta">—</span>
+            </div>
+            <div id="indicator"></div>
+          </div>
+          <div class="chart-status">
+            <span id="price-info">—</span>
+            <span id="time-info"></span>
+          </div>
+        </div>
+
+        <!-- 右：信号面板 -->
+        <aside class="panel">
+          <div class="panel-card resonance-card">
+            <h3>🎯 四维共振 · 决策建议</h3>
+            <div class="stance-row">
+              <span class="stance-badge" id="stance-badge">—</span>
+              <span class="score-big" id="score-big">—</span>
+            </div>
+            <div class="score-bar">
+              <div class="score-bar-zero"></div>
+              <div class="score-bar-fill" id="score-bar-fill"></div>
+            </div>
+            <div class="dims-grid" id="dims-grid">
+              <!-- A/B/C/D 四维小条 -->
+            </div>
+            <div class="sug-box" id="sug-box">
+              <!-- 交易建议内容 -->
+            </div>
+          </div>
+
+          <div class="panel-card">
+            <h3>🧭 趋势状态（道氏）</h3>
+            <div class="kv">
+              <span class="k">阶段</span>
+              <span class="v" id="dow-phase">—</span>
+            </div>
+            <div class="kv">
+              <span class="k">结构延续</span>
+              <span class="v" id="dow-age">—</span>
+            </div>
+            <div class="kv">
+              <span class="k">通道内位置</span>
+              <span class="v" id="channel-pos">—</span>
+            </div>
+            <div class="kv">
+              <span class="k">S/R 位数量</span>
+              <span class="v" id="sr-count">—</span>
+            </div>
+            <div class="kv">
+              <span class="k">未回补缺口</span>
+              <span class="v" id="gap-count">—</span>
+            </div>
+          </div>
+
+          <div class="panel-card">
+            <h3>� 技术图形（近期）</h3>
+            <ul class="sig-list" id="chart-pattern-list">
+              <li class="dim">加载中…</li>
+            </ul>
+          </div>
+
+          <div class="panel-card">
+            <h3>�📏 均线状态</h3>
+            <div class="kv" id="alignment-row">
+              <span class="k">排列</span>
+              <span class="v" id="alignment-val">—</span>
+            </div>
+            <div class="kv">
+              <span class="k">别名</span>
+              <span class="v" id="alignment-aliases">—</span>
+            </div>
+            <div class="kv">
+              <span class="k">基准 MA / BIAS</span>
+              <span class="v" id="bias-val">—</span>
+            </div>
+            <div class="kv">
+              <span class="k">价格位置</span>
+              <span class="v" id="price-pos">—</span>
+            </div>
+            <div class="kv">
+              <span class="k">间距趋势</span>
+              <span class="v" id="spread-state">—</span>
+            </div>
+            <table class="mini-table" id="ma-values">
+              <thead>
+                <tr><th>周期</th><th>末值</th><th>斜率 5</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <div class="panel-card">
+            <h3>📜 葛南维信号（近 50 根）</h3>
+            <ul class="sig-list" id="granville-list">
+              <li class="dim">加载中…</li>
+            </ul>
+          </div>
+
+          <div class="panel-card">
+            <h3>🔀 均线交叉（近 50 根）</h3>
+            <ul class="sig-list" id="cross-list">
+              <li class="dim">加载中…</li>
+            </ul>
+          </div>
+
+          <div class="panel-card" id="advanced-signals-card">
+            <h3>⚡ 高级信号（Sprint 3-7）</h3>
+            <div class="kv">
+              <span class="k">当前排列</span>
+              <span class="v" id="sig-alignment">—</span>
+            </div>
+            <div class="kv">
+              <span class="k">均线关系</span>
+              <span class="v" id="sig-ma-relation">—</span>
+            </div>
+            <div class="kv">
+              <span class="k">多合一合流</span>
+              <span class="v" id="sig-confluence-count">—</span>
+            </div>
+            <div class="kv">
+              <span class="k">ma 高级形态</span>
+              <span class="v" id="sig-advanced-ma-count">—</span>
+            </div>
+            <div class="kv">
+              <span class="k">多头陷阱</span>
+              <span class="v" id="sig-traps-count">—</span>
+            </div>
+            <div class="kv">
+              <span class="k">主力潜伏突破</span>
+              <span class="v" id="sig-stealth-count">—</span>
+            </div>
+            <div class="kv">
+              <span class="k">旗形 7 条验证</span>
+              <span class="v" id="sig-flag-count">—</span>
+            </div>
+            <div class="kv">
+              <span class="k">无量涨跌停</span>
+              <span class="v" id="sig-volume-anomaly">—</span>
+            </div>
+            <div class="kv">
+              <span class="k">120/240 日事件</span>
+              <span class="v" id="sig-long-term">—</span>
+            </div>
+            <div class="kv">
+              <span class="k">趋势转移次数</span>
+              <span class="v" id="sig-trend-transitions">—</span>
+            </div>
+            <div class="kv">
+              <span class="k">K 线组合</span>
+              <span class="v" id="sig-combinations">—</span>
+            </div>
+            <ul class="sig-list" id="sig-recent-events" style="margin-top: 8px;">
+              <li class="dim">最近事件：加载中…</li>
+            </ul>
+          </div>
+
+          <div class="panel-card">
+            <h3>🕯 K线形态（近 20 条）</h3>
+            <ul class="sig-list" id="pattern-list">
+              <li class="dim">加载中…</li>
+            </ul>
+          </div>
+        </aside>
+      </div>
+    </section>
+    <!-- ========== 回测实验室 ========== -->
+    <section id="backtest" class="view">
+      <div class="toolbar">
+        <div class="control">
+          <label>交易对</label>
+          <select id="bt-symbol">
+            <option value="BTCUSDT" selected>BTCUSDT</option>
+            <option value="ETHUSDT">ETHUSDT</option>
+            <option value="SOLUSDT">SOLUSDT</option>
+            <option value="BNBUSDT">BNBUSDT</option>
+            <option value="XRPUSDT">XRPUSDT</option>
+            <option value="DOGEUSDT">DOGEUSDT</option>
+          </select>
+        </div>
+        <div class="control">
+          <label>时间框架</label>
+          <select id="bt-interval">
+            <option value="15m">15m</option>
+            <option value="1h">1h</option>
+            <option value="4h" selected>4h</option>
+            <option value="1d">1d</option>
+            <option value="1w">1w</option>
+          </select>
+        </div>
+        <div class="control">
+          <label>K线数</label>
+          <input type="number" id="bt-limit" value="1000" min="200" max="1000" step="100" />
+        </div>
+        <div class="control">
+          <label>初始资金</label>
+          <input type="number" id="bt-capital" value="10000" min="1000" step="1000" />
+        </div>
+        <div class="control">
+          <label>单笔风险</label>
+          <input type="number" id="bt-risk" value="0.02" min="0.001" max="0.1" step="0.005" />
+        </div>
+        <div class="control">
+          <label>R:R 盈亏比</label>
+          <input type="number" id="bt-rr" value="2.0" min="0.5" max="10" step="0.5" />
+        </div>
+        <div class="control">
+          <label>ATR 倍数</label>
+          <input type="number" id="bt-atr" value="1.5" min="0.5" max="5" step="0.1" />
+        </div>
+        <div class="control">
+          <label>形态最低强度</label>
+          <input type="number" id="bt-strength" value="4" min="1" max="5" step="1" />
+        </div>
+        <div class="control">
+          <label>手续费 bps</label>
+          <input type="number" id="bt-fee" value="5" min="0" step="1" />
+        </div>
+        <div class="control">
+          <label>滑点 bps</label>
+          <input type="number" id="bt-slip" value="5" min="0" step="1" />
+        </div>
+        <div class="control toggles">
+          <label><input type="checkbox" id="bt-short" checked /> 允许做空</label>
+        </div>
+        <button id="bt-run" class="primary">▶ 运行回测</button>
+      </div>
+
+      <div class="bt-layout">
+        <!-- 权益曲线 + 回撤 -->
+        <div class="bt-equity-panel">
+          <h3>📈 权益曲线 + 回撤</h3>
+          <div id="bt-equity"></div>
+          <!-- P0-5：空白引导 -->
+          <div id="bt-equity-empty" class="empty-state">
+            <div class="empty-icon">📊</div>
+            <h4>点击 <span class="kbd">▶ 运行回测</span> 开始</h4>
+            <p>选择策略后，权益曲线会在这里显示：</p>
+            <ul class="empty-bullets">
+              <li>📈 权益曲线（金色） + 回撤条（红色）</li>
+              <li>📋 所有触发交易的清单</li>
+              <li>🏆 形态胜率排行榜</li>
+              <li>📊 17 项绩效指标（Sharpe / Sortino / Calmar / DD...）</li>
+            </ul>
+            <div class="empty-presets">
+              <button class="empty-preset-btn" data-preset="default">🚀 BTC 1d · 默认参数</button>
+              <button class="empty-preset-btn" data-preset="conservative">🛡 BTC 4h · 保守 1% 风险</button>
+              <button class="empty-preset-btn" data-preset="aggressive">⚡ ETH 4h · 激进 2% 风险 + 3R</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 绩效指标 -->
+        <div class="bt-metrics-panel">
+          <h3>📊 绩效指标</h3>
+          <div class="metrics-grid" id="bt-metrics">
+            <div class="metric"><span class="mk">运行中…</span></div>
+          </div>
+        </div>
+
+        <!-- 形态胜率排行 -->
+        <div class="bt-pattern-panel">
+          <h3>🏆 形态胜率排行榜</h3>
+          <table class="big-table" id="bt-pattern-table">
+            <thead>
+              <tr><th>排名</th><th>信号源</th><th>次数</th><th>胜率</th><th>均 R</th><th>累计 R</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <!-- 交易清单 -->
+        <div class="bt-trades-panel">
+          <h3>📋 交易清单</h3>
+          <table class="big-table" id="bt-trades-table">
+            <thead>
+              <tr><th>#</th><th>方向</th><th>入场时间</th><th>入场价</th><th>止损</th><th>止盈</th><th>出场价</th><th>R</th><th>原因</th><th>触发</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <!-- Sprint 13：原书策略（Playbook）回测 -->
+        <div class="bt-metrics-panel playbook-panel" style="margin-top: 20px;">
+          <h3>🎭 原书策略回测（Playbook）</h3>
+          <p style="color: var(--muted); font-size: 0.9em;">
+            基于原书铁证策略模板驱动的回测：4 个独立策略 + 1 个组合策略。
+            每种策略的书源、触发逻辑、仓位都严格遵循原书。
+          </p>
+          <div class="toolbar" style="margin: 12px 0;">
+            <div class="control">
+              <label>策略</label>
+              <select id="pb-strategy">
+                <option value="default">组合策略（默认，三书综合）</option>
+                <option value="guillotine">断头铡刀清仓（ma p.380）</option>
+                <option value="scallions">旱地拔葱轻仓（ma p.340）</option>
+                <option value="staged_exit">三次减仓（candle p.605）</option>
+                <option value="trend_matrix">多级趋势线矩阵（trend p.216）</option>
+              </select>
+            </div>
+            <button class="primary" id="pb-run-btn">运行单策略</button>
+            <button class="primary" id="pb-compare-btn" style="background:#58a6ff;" title="一次性跑完 5 个策略并对比">⚖️ 对比全部策略</button>
+          </div>
+          <div class="metrics-grid" id="pb-metrics">
+            <div class="metric"><span class="mk">未运行，请点击上方按钮</span></div>
+          </div>
+          <!-- P0-4：对比模式表格 -->
+          <div id="pb-compare-wrap" class="pb-compare-wrap" style="display:none;">
+            <table class="big-table pb-compare-table" id="pb-compare-table">
+              <thead>
+                <tr>
+                  <th>策略</th>
+                  <th>总收益</th>
+                  <th>胜率</th>
+                  <th>最大回撤</th>
+                  <th>盈亏比</th>
+                  <th>Sharpe</th>
+                  <th>期望 R</th>
+                  <th>交易数</th>
+                  <th>相对排名</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+            <div class="pb-compare-summary" id="pb-compare-summary"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 有效性分析（Sprint A：离线统计） ========== -->
+    <section id="effectiveness" class="view">
+      <div class="toolbar">
+        <div class="control">
+          <label>交易对</label>
+          <select id="eff-symbol">
+            <option value="BTCUSDT" selected>BTCUSDT</option>
+            <option value="ETHUSDT">ETHUSDT</option>
+            <option value="SOLUSDT">SOLUSDT</option>
+          </select>
+        </div>
+        <div class="control">
+          <label>周期</label>
+          <select id="eff-interval">
+            <option value="1h">1 小时</option>
+            <option value="4h" selected>4 小时</option>
+            <option value="1d">日线</option>
+          </select>
+        </div>
+        <div class="control">
+          <label>K 线数</label>
+          <select id="eff-limit">
+            <option value="500">500</option>
+            <option value="1000">1000</option>
+            <option value="2000" selected>2000</option>
+          </select>
+        </div>
+        <div class="control">
+          <label>结算 horizon（根）</label>
+          <input type="number" id="eff-horizon" value="20" min="3" max="200" step="1" />
+        </div>
+        <div class="control">
+          <label>最小样本</label>
+          <input type="number" id="eff-min-n" value="3" min="0" max="100" step="1" title="低于此样本数的 arm 将被折叠到底部" />
+        </div>
+        <button id="eff-run" class="primary">📈 运行评估</button>
+      </div>
+
+      <div class="eff-header">
+        <div class="eff-desc">
+          <strong>🏆 指标有效性排行榜</strong>
+          <span class="eff-sub">
+            基于 <code>engine/signal/replay.rs</code> 历史再现：扫描所有 Playbook + MA 高级信号触发点，
+            按 <code>sqrt(n) × (胜率−0.5) × 平均收益(%) × 10</code> 评分。见
+            <code>RL_EFFECTIVENESS_DESIGN.md</code>。
+          </span>
+        </div>
+        <div class="eff-stats" id="eff-stats">—</div>
+      </div>
+
+      <table class="big-table eff-table" id="eff-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>arm</th>
+            <th>类别</th>
+            <th>样本</th>
+            <th>胜率</th>
+            <th>平均收益</th>
+            <th>Sharpe</th>
+            <th>α (vs 市场)</th>
+            <th>最大收益</th>
+            <th>最大回撤</th>
+            <th>综合评分</th>
+            <th>原书依据</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td colspan="12" style="text-align:center;color:var(--text-dim);padding:24px;">点击"📈 运行评估"开始</td></tr>
+        </tbody>
+      </table>
+
+      <!-- ========== Sprint B：Bandit 在线学习面板 ========== -->
+      <div class="bandit-section">
+        <div class="eff-header">
+          <div class="eff-desc">
+            <strong>🎰 Thompson Sampling Bandit</strong>
+            <span class="eff-sub">
+              持久化 <code>data_cache/bandit_state.v1.json</code>：每个 arm 维护 Beta(α, β) 后验。
+              点击"🎓 训练"把上表 Sprint A 的 wins/losses 一次性合并到 Bandit 后验；<br>
+              点击 arm 行可单独查看其 <strong>直方图可视化</strong>（待扩展）。
+            </span>
+          </div>
+          <div class="bandit-ctrl">
+            <button id="bandit-refresh" class="secondary">🔄 刷新</button>
+            <button id="bandit-train" class="primary" title="用当前工具栏的参数训练 Bandit（把评估结果合并到 Beta 后验）">🎓 训练</button>
+            <button id="bandit-reset" class="danger" title="清空 Bandit 状态（恢复到 Beta(1,1) 均匀先验）">🗑️ 重置</button>
+          </div>
+        </div>
+
+        <div class="bandit-stats" id="bandit-stats">—</div>
+
+        <table class="big-table bandit-table" id="bandit-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>arm</th>
+              <th>类别</th>
+              <th>触发</th>
+              <th>W/L</th>
+              <th>α</th>
+              <th>β</th>
+              <th>后验均值</th>
+              <th>95% 区间</th>
+              <th>平均 R%</th>
+              <th>最大/最小 R%</th>
+              <th>原书依据</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="12" style="text-align:center;color:var(--text-dim);padding:24px;">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ========== 参数配置面板 ========== -->
+    <section id="config" class="view">
+      <div class="cfg-grid">
+        <div class="cfg-card">
+          <h3>🎯 四维共振权重</h3>
+          <p class="cfg-desc">调整 A/B/C/D 四个维度在共振评分中的相对权重。权重越高，该维度对总分的影响越大。</p>
+          <div class="cfg-row">
+            <label>A 均线维度</label>
+            <input type="range" id="cfg-w-ma" min="0" max="1" step="0.05" value="0.3" />
+            <span class="cfg-val" id="cfg-w-ma-v">0.30</span>
+          </div>
+          <div class="cfg-row">
+            <label>B 趋势维度</label>
+            <input type="range" id="cfg-w-trend" min="0" max="1" step="0.05" value="0.3" />
+            <span class="cfg-val" id="cfg-w-trend-v">0.30</span>
+          </div>
+          <div class="cfg-row">
+            <label>C K线形态</label>
+            <input type="range" id="cfg-w-candle" min="0" max="1" step="0.05" value="0.2" />
+            <span class="cfg-val" id="cfg-w-candle-v">0.20</span>
+          </div>
+          <div class="cfg-row">
+            <label>D 技术图形</label>
+            <input type="range" id="cfg-w-chart" min="0" max="1" step="0.05" value="0.2" />
+            <span class="cfg-val" id="cfg-w-chart-v">0.20</span>
+          </div>
+          <div class="cfg-row">
+            <label>总权重</label>
+            <span class="cfg-val" id="cfg-w-sum">1.00</span>
+          </div>
+        </div>
+
+        <div class="cfg-card">
+          <h3>🛡 风险管理默认值</h3>
+          <p class="cfg-desc">这些参数会作为"建议计算器"与回测的默认值。</p>
+          <div class="cfg-row">
+            <label>账户资金 (USD)</label>
+            <input type="number" id="cfg-equity" value="10000" min="100" step="1000" />
+          </div>
+          <div class="cfg-row">
+            <label>单笔最大风险 %</label>
+            <input type="number" id="cfg-max-risk" value="2" min="0.1" max="10" step="0.1" />
+          </div>
+          <div class="cfg-row">
+            <label>R:R 盈亏比</label>
+            <input type="number" id="cfg-rr" value="2" min="0.5" max="10" step="0.5" />
+          </div>
+          <div class="cfg-row">
+            <label>ATR 止损倍数</label>
+            <input type="number" id="cfg-atr-mult" value="1.5" min="0.5" max="5" step="0.1" />
+          </div>
+        </div>
+
+        <div class="cfg-card">
+          <h3>📊 均线参数</h3>
+          <p class="cfg-desc">均线周期集合（逗号分隔）。修改后自动刷新实时分析。</p>
+          <div class="cfg-row">
+            <label>预设方案</label>
+            <select id="cfg-preset">
+              <option value="custom">自定义</option>
+              <option value="aura" selected>Aura 默认（MA5/10/20/30/60/120/250）</option>
+              <option value="banmuxia">半木夏（MA5/10/30/90/120/256 · 1% 风险）</option>
+            </select>
+          </div>
+          <div class="cfg-row">
+            <label>均线周期</label>
+            <input type="text" id="cfg-periods" value="5,10,20,30,60,120,250" />
+          </div>
+          <div class="cfg-row">
+            <label>基准均线</label>
+            <select id="cfg-base">
+              <option value="20">MA20</option>
+              <option value="30" selected>MA30（推荐）</option>
+              <option value="60">MA60</option>
+              <option value="90">MA90</option>
+              <option value="120">MA120</option>
+              <option value="250">MA250</option>
+              <option value="256">MA256</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="cfg-card">
+          <h3>📋 系统信息</h3>
+          <div class="kv"><span class="k">后端</span><span class="v">Rust (tiny_http)</span></div>
+          <div class="kv"><span class="k">图表</span><span class="v">TradingView Lightweight Charts</span></div>
+          <div class="kv"><span class="k">数据源</span><span class="v">Binance Public REST</span></div>
+          <div class="kv"><span class="k">K线形态</span><span class="v">46+ 种</span></div>
+          <div class="kv"><span class="k">技术图形</span><span class="v">25 种</span></div>
+          <div class="kv"><span class="k">均线特殊形态</span><span class="v">17 种</span></div>
+          <div class="kv"><span class="k">辅助指标</span><span class="v">RSI / MACD / Volume</span></div>
+          <div class="kv"><span class="k">回测绩效</span><span class="v">17 项（Sharpe / Sortino / Calmar / DD...）</span></div>
+        </div>
+
+        <div class="cfg-card" style="grid-column: 1 / span 2;">
+          <h3>📖 评分逻辑说明</h3>
+          <p class="cfg-desc">
+            系统使用 <strong>四维共振</strong> 评分（-100 ~ +100）：<br>
+            <strong>A 均线</strong>：排列状态 + 斜率 + BIAS + 17 种特殊形态（权重 1-5）<br>
+            <strong>B 趋势</strong>：道氏趋势阶段（±40） + 通道位置（±10） + 未回补缺口<br>
+            <strong>C K线形态</strong>：最近 5 根命中形态的 direction × strength × 4<br>
+            <strong>D 技术图形</strong>：最近 30 根完成的图形 direction × strength × 5<br>
+          </p>
+          <p class="cfg-desc">
+            <strong>信心 → 仓位</strong>：总分 ≥ 60 强烈看涨（100%）；30-60 看涨（70%）；10-30 偏多（35%）；&lt;10 观望（0%）。
+            方向一致性 &lt; 60% 时信心再减半。最终风险 = 账户资金 × 单笔风险 × 信心。
+          </p>
+          <p class="cfg-desc">
+            <strong>仓位计算</strong>：止损距离 = max(ATR × 倍数, 价格 × 0.3%)；仓位 = 风险金额 ÷ 止损距离；止盈 = 止损距离 × R:R。
+          </p>
+          <p class="cfg-desc" style="margin-top: 14px;">
+            <strong>💾 配置持久化</strong>：所有参数自动保存到浏览器本地存储，下次打开自动恢复。
+            <button id="cfg-reset" class="cfg-btn-danger" style="margin-left: 10px;">恢复默认</button>
+          </p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <span>基于邱立波《趋势交易技术》三本典籍 · 四维共振决策辅助</span>
+    <span id="footer-phase">v0.1.0 · Phase 1 MVP</span>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>

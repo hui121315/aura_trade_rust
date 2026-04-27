@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aura · 实时信号面板</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/system.css" />
+  <link rel="stylesheet" href="/trade.css" />
+  <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+  <header class="lab-topbar">
+    <div class="brand">
+      <span class="logo">✦</span>
+      <span class="wordmark">Aura</span>
+      <span class="subtitle">实时信号面板</span>
+    </div>
+    <nav class="nav-links">
+      <span id="tr-last-update" class="tr-update-info">—</span>
+      <a href="/benchmark.html">🔥 基准</a>
+      <a href="/system.html">🧪 体系</a>
+      <a href="/alerts.html">🔔 订阅</a>
+      <a href="/knowledge.html">📚 知识</a>
+      <a href="/">← 主界面</a>
+    </nav>
+  </header>
+
+  <main class="tr-main">
+    <aside class="tr-sidebar">
+      <section class="card">
+        <h2>🎯 订阅配置</h2>
+        <div class="form-row">
+          <label>体系</label>
+          <select id="tr-system"></select>
+        </div>
+        <div class="form-grid">
+          <div class="form-row">
+            <label>Symbol</label>
+            <select id="tr-symbol">
+              <option value="BTCUSDT" selected>BTCUSDT</option>
+              <option value="ETHUSDT">ETHUSDT</option>
+              <option value="SOLUSDT">SOLUSDT</option>
+              <option value="BNBUSDT">BNBUSDT</option>
+              <option value="XRPUSDT">XRPUSDT</option>
+              <option value="DOGEUSDT">DOGEUSDT</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Interval</label>
+            <select id="tr-interval">
+              <option value="15m">15m</option>
+              <option value="1h">1h</option>
+              <option value="4h" selected>4h</option>
+              <option value="1d">1d</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>K 线数</label>
+            <input type="number" id="tr-limit" value="300" min="100" max="2000" step="50" />
+          </div>
+          <div class="form-row">
+            <label>刷新间隔 (秒)</label>
+            <input type="number" id="tr-refresh" value="30" min="5" max="600" step="5" />
+          </div>
+        </div>
+        <div class="btn-row" style="margin-top: 10px;">
+          <button id="tr-btn-start" class="btn-primary" type="button">▶ 开始监听</button>
+          <button id="tr-btn-stop" class="btn-secondary" type="button" disabled>⏸ 暂停</button>
+        </div>
+        <div class="tr-notify-row">
+          <button id="tr-btn-notify" class="btn-secondary" type="button" style="flex:1;">🔔 启用通知</button>
+          <label class="tr-toggle">
+            <input type="checkbox" id="tr-sound-on" checked />
+            <span>🔊 声音</span>
+          </label>
+          <label class="tr-toggle">
+            <input type="checkbox" id="tr-notify-trigger" />
+            <span>仅聚合信号</span>
+          </label>
+        </div>
+        <div id="tr-status" class="run-status"></div>
+      </section>
+
+      <section class="card">
+        <h2>📜 体系描述</h2>
+        <div id="tr-sys-info" class="tr-sys-info">
+          <div class="loading">请先选择体系</div>
+        </div>
+      </section>
+    </aside>
+
+    <section class="tr-main-panel">
+      <div class="card tr-hero">
+        <div class="tr-hero-head">
+          <div>
+            <div class="tr-price-label">最新价</div>
+            <div class="tr-price" id="tr-price">—</div>
+            <div class="tr-price-meta" id="tr-price-meta">—</div>
+          </div>
+          <div class="tr-signal" id="tr-signal">
+            <div class="tr-signal-label">当前信号</div>
+            <div class="tr-signal-val" id="tr-signal-val">—</div>
+            <div class="tr-signal-reason" id="tr-signal-reason"></div>
+          </div>
+        </div>
+        <div id="tr-chart" class="tr-chart"></div>
+        <div class="tr-chart-legend">
+          <span><span class="tr-legend-dot long"></span>多头触发 bar</span>
+          <span><span class="tr-legend-dot short"></span>空头触发 bar</span>
+          <span><span class="tr-legend-dot signal"></span>聚合信号成立</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>🎯 最新 Bar 组件触发情况</h2>
+        <div class="hint" id="tr-latest-bar-hint">每根 K 线关闭后重新扫描</div>
+        <div class="tr-components" id="tr-components">
+          <div class="loading">等待数据…</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>📋 最近 N Bar 信号</h2>
+        <table class="data-table" id="tr-bars-table">
+          <thead>
+            <tr>
+              <th>Bar</th>
+              <th>时间</th>
+              <th>OHLC</th>
+              <th>触发组件</th>
+              <th>聚合</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="/toast.js"></script>
+  <script src="/trade.js"></script>
+</body>
+</html>
